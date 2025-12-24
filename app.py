@@ -3,15 +3,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# 1. Хуудасны тохиргоо (Цэнхэр өнгөтэй, өргөн дэлгэц)
+# 1. Хуудасны тохиргоо
 st.set_page_config(page_title="UB Housing Dashboard", layout="wide")
 
-# Custom CSS ашиглан үзэмж нэмэх
+# Custom CSS
 st.markdown("""
     <style>
-    .main {
-        background-color: #f5f7f9;
-    }
     .stMetric {
         background-color: #ffffff;
         padding: 15px;
@@ -23,6 +20,7 @@ st.markdown("""
 
 @st.cache_data
 def load_data():
+    # Excel файлыг унших
     data = pd.read_excel('ub_housing.csv')
     data['Сар'] = pd.to_datetime(data['Сар'])
     return data
@@ -30,14 +28,15 @@ def load_data():
 try:
     df = load_data()
     
-    # Дээд хэсгийн тоон үзүүлэлтүүд (Metrics)
     st.title("🏙️ Улаанбаатар хотын орон сууцны зах зээлийн тайлан")
     
     # Тооцооллууд
     latest_date = df['Сар'].max()
-    latest_data = df[df['Сar'] == latest_date]
+    # ЭНД ЗАССАН ШҮҮ: 'Сар' монгол үсгээр
+    latest_data = df[df['Сар'] == latest_date]
     avg_price = latest_data['Утга'].mean()
     
+    # Дээд талын Metrics
     m1, m2, m3 = st.columns(3)
     with m1:
         st.metric("Дундаж үнэ (Сүүлийн сар)", f"{avg_price:.1f} сая ₮")
@@ -45,12 +44,14 @@ try:
         top_district = latest_data.loc[latest_data['Утга'].idxmax(), 'Дүүрэг']
         st.metric("Хамгийн үнэтэй дүүрэг", top_district)
     with m3:
-        total_growth = ((df.groupby('Сар')['Утга'].mean().iloc[-1] / df.groupby('Сар')['Утга'].mean().iloc[0]) - 1) * 100
+        # Ерөнхий дундаж өсөлт
+        monthly_avg = df.groupby('Сар')['Утга'].mean()
+        total_growth = ((monthly_avg.iloc[-1] / monthly_avg.iloc[0]) - 1) * 100
         st.metric("Нийт өсөлт (хугацааны турш)", f"{total_growth:.1f}%", delta=f"{total_growth:.1f}%")
 
     st.divider()
 
-    # Үндсэн графикуудыг Таб (Tab) дотор хийвэл илүү цэвэрхэн харагдана
+    # Табууд
     tab1, tab2 = st.tabs(["📈 Ерөнхий тренд", "📊 Дүүргийн харьцуулалт"])
 
     with tab1:
@@ -78,4 +79,4 @@ try:
             st.plotly_chart(fig3, use_container_width=True)
 
 except Exception as e:
-    st.error(f"Алдаа: {e}")
+    st.error(f"Алдаа гарлаа: {e}")
