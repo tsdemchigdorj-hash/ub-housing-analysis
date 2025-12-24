@@ -9,7 +9,7 @@ st.title("🏙️ Улаанбаатар хотын орон сууцны үни
 @st.cache_data
 def load_data():
     # 'cp1251' нь крилл үсгийг уншихад хамгийн түгээмэл ашиглагддаг код юм
-    return pd.read_csv('ub_housing.csv', encoding='cp1251')
+    return pd.read_csv('ub_housing.csv', encoding='unicode_escape')
 
 try:
     df = load_data()
