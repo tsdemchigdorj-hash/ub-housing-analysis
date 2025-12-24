@@ -1,14 +1,28 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px  # Интерактив графикын сан
+import plotly.express as px
+import plotly.graph_objects as go
 
-# 1. Вэбийн тохиргоо
-st.set_page_config(page_title="UB Housing Analysis", layout="wide")
-st.title("🏙️ Улаанбаатар хотын орон сууцны зах зээлийн дэлгэрэнгүй шинжилгээ")
+# 1. Хуудасны тохиргоо (Цэнхэр өнгөтэй, өргөн дэлгэц)
+st.set_page_config(page_title="UB Housing Dashboard", layout="wide")
+
+# Custom CSS ашиглан үзэмж нэмэх
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f5f7f9;
+    }
+    .stMetric {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
-    # Excel файлыг унших
     data = pd.read_excel('ub_housing.csv')
     data['Сар'] = pd.to_datetime(data['Сар'])
     return data
@@ -16,50 +30,52 @@ def load_data():
 try:
     df = load_data()
     
-    # --- 1-Р ХЭСЭГ: ЕРӨНХИЙ ТРЕНД (ТОМ ХАРАГДАЦ) ---
-    st.subheader("📊 1. Орон сууцны үнийн ерөнхий хандлага")
-    overall_mean = df.groupby('Сар')['Утга'].mean().reset_index()
+    # Дээд хэсгийн тоон үзүүлэлтүүд (Metrics)
+    st.title("🏙️ Улаанбаатар хотын орон сууцны зах зээлийн тайлан")
     
-    fig1 = px.line(overall_mean, x='Сар', y='Утга', 
-                  title="Улаанбаатар хотын дундаж үнэ (сая ₮)",
-                  markers=True, line_shape="linear")
-    fig1.update_layout(xaxis_title="Хугацаа", yaxis_title="Үнэ (сая ₮)")
-    st.plotly_chart(fig1, use_container_width=True) # Дэлгэц дүүрэн гарна
-
-    st.divider() # Хөндлөн зураас
-
-    # --- 2-Р ХЭСЭГ: ДҮҮРГҮҮДИЙН ХАРЬЦУУЛАЛТ ---
-    st.subheader("🏘️ 2. Дүүргүүдийн үнийн харьцуулалт болон өсөлт")
-    col1, col2 = st.columns(2) # Дэлгэцийг босоо хоёр хуваах
-
-    with col1:
-        # Дүүрэг бүрийн шугаман график
-        pivot_df = df.pivot_table(index='Сар', columns='Дүүрэг', values='Утга', aggfunc='mean').reset_index()
-        fig2 = px.line(df, x='Сар', y='Утга', color='Дүүрэг', title="Дүүрэг бүрээр")
-        st.plotly_chart(fig2, use_container_width=True)
-
-    with col2:
-        # Өсөлтийн хувь (Баганан график)
-        pivot_calc = df.pivot_table(index='Сар', columns='Дүүрэг', values='Утга', aggfunc='mean')
-        growth = ((pivot_calc.iloc[-1] - pivot_calc.iloc[0]) / pivot_calc.iloc[0] * 100).reset_index()
-        growth.columns = ['Дүүрэг', 'Өсөлт (%)']
-        fig3 = px.bar(growth.sort_values('Өсөлт (%)'), x='Өсөлт (%)', y='Дүүрэг', 
-                     orientation='h', color='Өсөлт (%)', title="Нийт өсөлтийн хувь")
-        st.plotly_chart(fig3, use_container_width=True)
+    # Тооцооллууд
+    latest_date = df['Сар'].max()
+    latest_data = df[df['Сar'] == latest_date]
+    avg_price = latest_data['Утга'].mean()
+    
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.metric("Дундаж үнэ (Сүүлийн сар)", f"{avg_price:.1f} сая ₮")
+    with m2:
+        top_district = latest_data.loc[latest_data['Утга'].idxmax(), 'Дүүрэг']
+        st.metric("Хамгийн үнэтэй дүүрэг", top_district)
+    with m3:
+        total_growth = ((df.groupby('Сар')['Утга'].mean().iloc[-1] / df.groupby('Сар')['Утга'].mean().iloc[0]) - 1) * 100
+        st.metric("Нийт өсөлт (хугацааны турш)", f"{total_growth:.1f}%", delta=f"{total_growth:.1f}%")
 
     st.divider()
 
-    # --- 3-Р ХЭСЭГ: УЛИРЛЫН НӨЛӨӨ ---
-    st.subheader("📅 3. Саруудын дундаж үнэ (Улирлын нөлөө)")
-    df['Сар_Дугаар'] = df['Сар'].dt.month
-    seasonal = df.groupby('Сар_Дугаар')['Утга'].mean().reset_index()
-    
-    fig4 = px.bar(seasonal, x='Сар_Дугаар', y='Утга', 
-                 title="Сар бүрийн үнийн дундаж үзүүлэлт",
-                 labels={'Сар_Дугаар': 'Сар', 'Утга': 'Дундаж үнэ (сая ₮)'},
-                 color='Утга')
-    fig4.update_layout(xaxis=dict(tickmode='linear', tick0=1, dtick=1)) # Сарыг 1, 2, 3.. гэж харуулна
-    st.plotly_chart(fig4, use_container_width=True)
+    # Үндсэн графикуудыг Таб (Tab) дотор хийвэл илүү цэвэрхэн харагдана
+    tab1, tab2 = st.tabs(["📈 Ерөнхий тренд", "📊 Дүүргийн харьцуулалт"])
+
+    with tab1:
+        st.subheader("Орон сууцны үнийн динамик өөрчлөлт")
+        overall_trend = df.groupby('Сар')['Утга'].mean().reset_index()
+        fig1 = px.area(overall_trend, x='Сар', y='Утга', 
+                       title="УБ хотын дундаж үнийн тренд",
+                       color_discrete_sequence=['#1f77b4'])
+        fig1.update_layout(hovermode="x unified")
+        st.plotly_chart(fig1, use_container_width=True)
+
+    with tab2:
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            st.subheader("Дүүрэг бүрийн үнэ")
+            fig2 = px.line(df, x='Сар', y='Утга', color='Дүүрэг', markers=True)
+            st.plotly_chart(fig2, use_container_width=True)
+        with c2:
+            st.subheader("Өсөлтийн хувь")
+            pivot_calc = df.pivot_table(index='Сар', columns='Дүүрэг', values='Утга', aggfunc='mean')
+            growth = ((pivot_calc.iloc[-1] / pivot_calc.iloc[0]) - 1) * 100
+            growth = growth.reset_index().rename(columns={0: 'Өсөлт (%)'})
+            fig3 = px.bar(growth.sort_values('Өсөлт (%)'), x='Өсөлт (%)', y='Дүүрэг', 
+                         color='Өсөлт (%)', orientation='h', color_continuous_scale='Viridis')
+            st.plotly_chart(fig3, use_container_width=True)
 
 except Exception as e:
-    st.error(f"Алдаа гарлаа: {e}")
+    st.error(f"Алдаа: {e}")
